@@ -1,0 +1,87 @@
+---
+title: "North Carolina 2026 General Election"
+execute:
+  echo: false
+  message: false
+  warning: false
+---
+
+Precinct-level results from the November 3, 2026 U.S. Senate election in North Carolina between Roy Cooper (Democratic) and Michael Whatley (Republican), using data from the North Carolina State Board of Elections.
+
+```{r}
+library(tidyverse)
+library(sf)
+
+# Keep real precincts in the U.S. Senate race; early-voting and absentee rows
+# do not have a single precinct boundary to map.
+senate_precinct <- read_tsv("data/nc/results_pct_20261103.txt") |>
+  filter(`Contest Name` == "US SENATE", `Real Precinct` == "Y") |>
+  summarize(
+    dem_votes = sum(`Total Votes`[`Choice Party` == "DEM"]),
+    rep_votes = sum(`Total Votes`[`Choice Party` == "REP"]),
+    total_votes = sum(`Total Votes`),
+    margin_pct = 100 * (dem_votes - rep_votes) / total_votes,
+    .by = c(County, Precinct)
+  )
+
+# Download the official NC OneMap precinct boundaries in pages of 1,000
+precinct_service <- "https://services.nconemap.gov/secure/rest/services/NC1Map_Boundaries/MapServer/0"
+precinct_count <- jsonlite::fromJSON(
+  paste0(precinct_service, "/query?where=1%3D1&returnCountOnly=true&f=json")
+)$count
+
+nc_precincts <- seq(0, precinct_count - 1, by = 1000) |>
+  map(\(offset) st_read(
+    paste0(
+      precinct_service,
+      "/query?where=1%3D1&outFields=%2A&outSR=4326&f=geojson&resultRecordCount=1000&resultOffset=",
+      offset
+    ),
+    quiet = TRUE
+  )) |>
+  bind_rows() |>
+  mutate(
+    County = toupper(county_nam),
+    Precinct = toupper(prec_id)
+  )
+
+unmatched_precincts <- anti_join(
+  senate_precinct,
+  st_drop_geometry(nc_precincts) |> select(County, Precinct),
+  by = c("County", "Precinct")
+)
+
+nc_map <- inner_join(nc_precincts, senate_precinct, by = c("County", "Precinct"))
+boundary_note <- if (nrow(unmatched_precincts) == 0) {
+  "All real precincts matched to boundaries."
+} else {
+  paste0(
+    nrow(unmatched_precincts),
+    ifelse(nrow(unmatched_precincts) == 1, " precinct", " precincts"),
+    " without a matching boundary omitted."
+  )
+}
+
+# Plot precinct margin: blue = Cooper (DEM) lead, red = Whatley (REP) lead
+ggplot(nc_map, aes(fill = margin_pct)) +
+  geom_sf(color = "white", linewidth = 0.05) +
+  scale_fill_gradient2(
+    low = "#b2182b",
+    mid = "white",
+    high = "#2166ac",
+    midpoint = 0,
+    labels = \(x) paste0(ifelse(x > 0, "+", ""), round(x), "%")
+  ) +
+  labs(
+    title = "2026 NC U.S. Senate Margin by Precinct",
+    subtitle = "Roy Cooper (D) vs. Michael Whatley (R)",
+    fill = "Dem - Rep\nMargin",
+    caption = paste(
+      "Source: NC State Board of Elections results; NC OneMap boundaries.",
+      "Early-voting and absentee rows are not mapped.",
+      boundary_note,
+      sep = "\n"
+    )
+  ) +
+  theme_void()
+```
