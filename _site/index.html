@@ -139,7 +139,7 @@ ul.task-list li input[type="checkbox"] {
 </header>
 
 
-<p>County-level results from the November 3, 2026 U.S. Senate election in North Carolina between Roy Cooper (Democratic) and Michael Whatley (Republican), using precinct data from the North Carolina State Board of Elections.</p>
+<p>Precinct-level results from the November 3, 2026 U.S. Senate election in North Carolina between Roy Cooper (Democratic) and Michael Whatley (Republican), using data from the North Carolina State Board of Elections.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div>
@@ -226,7 +226,7 @@ ul.task-list li input[type="checkbox"] {
     }
       var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
       var mailtoRegex = new RegExp(/^mailto:/);
-        var filterRegex = new RegExp('/' + window.location.host + '/');
+        var filterRegex = new RegExp("https:\/\/gtillery19\.github\.io\/elections-2026\/");
       var isInternal = (href) => {
           return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
       }
